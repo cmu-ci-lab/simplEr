@@ -478,7 +478,8 @@ struct US {
         if(p.x > m_EgapEndLocX || p.x < m_SgapBeginLocX)
             return n_o;
 #ifndef SPLINE_RIF
-    	return bessel_RIF(p, scaling);
+//    	return bessel_RIF(p, scaling);
+        return fitted_HIFU_RIF(p, scaling);
 #else
     	return spline_RIF(p, scaling);
 #endif
@@ -488,7 +489,8 @@ struct US {
         if(q.x > m_EgapEndLocX || q.x < m_SgapBeginLocX)
             return VectorType<Float>(0.0);
 #ifndef SPLINE_RIF
-    	return bessel_dRIF(q, scaling);
+//    	return bessel_dRIF(q, scaling);
+    	return fitted_HIFU_dRIF(q, scaling);
 #else
     	return spline_dRIF(q, scaling);
 #endif
@@ -553,7 +555,11 @@ struct US {
 
     inline double bessel_RIF(const VectorType<Float> &p, const Float &scaling) const;
 
+    inline double fitted_HIFU_RIF(const VectorType<Float> &p, const Float &scaling) const;
+
     inline const VectorType<Float> bessel_dRIF(const VectorType<Float> &q, const Float &scaling) const;
+
+    inline const VectorType<Float> fitted_HIFU_dRIF(const VectorType<Float> &q, const Float &scaling) const;
 
     inline const Matrix3x3 bessel_HessianRIF(const VectorType<Float> &p, const Float &scaling) const;
 
