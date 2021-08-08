@@ -164,7 +164,6 @@ double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &
      * but we should get the i-th element only by doting in corresponding unit vectors
      */
 
-	Float scale = 1000;
     if (n_max != 0) { // to make things faster we put this in if statement
 		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
 
@@ -177,8 +176,8 @@ double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &
 				std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
 				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, scale);
 	//    std::cout<<"pressure at "<<p << "\n    "<<pressure<<"\n";
-		Float k = 1.402e-5 * 1e-5; // in Pa^-1
-		return n_o + k * pressure;
+
+		return n_o + kp * pressure;
     }
     else {
     	return n_o;
@@ -193,7 +192,7 @@ const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float>
 	/* we should assume correct order, where lights travels in Z
 	 * but we should get the i-th element only by doting in corresponding unit vectors
 	 */
-	Float scale = 1000;
+
 	if (n_max != 0) { // to make things faster we put this in if statement
 		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
 
@@ -209,17 +208,15 @@ const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float>
 
 		Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, scale)
 				* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
-				* dot(q - p_u, axis_ux) / distance_to_y_peak;
+				* dot(q - p_u, axis_ux) / distance_to_HIFU_axis;
 
 		Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, scale)
 					* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
-					* dot(q - p_u, axis_uz) / distance_to_y_peak;
+					* dot(q - p_u, axis_uz) / distance_to_HIFU_axis;
 
-		Float k = 1.402e-5 * 1e-5;
-
-		VectorType<Float> dn(k * dP_dx,
-							 k * dP_dy,
-							 k * dP_dz);
+		VectorType<Float> dn(kp * dP_dx,
+							 kp * dP_dy,
+							 kp * dP_dz);
 		//std::cout<<"gradiant at "<<q<<"\n    "<< dn <<"\n";
 		return dn;
 	}

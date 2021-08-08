@@ -122,8 +122,10 @@ int main(int argc, char **argv) {
          **** HOSSEIN CODE starts HERE
          * Initialize hifu parameters
      */
-    int poly_degree = 0;
-    std::vector<Float> poly_coefs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
+    int cylindricalOrHIFU = 1;
+    Float scale = 1000.0;
+    Float kp = 1.402e-5 * 1e-5;
+    std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
     Float hifu_freq = FPCONST(2315.5);
     //**** HOSSEIN CODE ends HERE
 
@@ -232,21 +234,29 @@ int main(int argc, char **argv) {
                 return -1;
             }
 
-            //  **** HOSSEIN CODE
+        }
 
-        }else if(param[0].compare("poly_coefs")==0){
+        // HOSSEIN CODE starts HERE
+
+        else if(param[0].compare("cylindricalOrHIFU")==0){
+        	cylindricalOrHIFU = stoi(param[1]);
+        }else if(param[0].compare("poly_coeffs")==0){
         	std::vector<std::string> coef_strs = tokenize(param[1], ",");
-        	poly_degree = coef_strs.size();
-//        	std::transform(coef_strs.cbegin(), coef_strs.cend(), poly_coefs.begin(), std::stof);
+//        	std::transform(coef_strs.cbegin(), coef_strs.cend(), poly_coeffs.begin(), std::stof);
         	for(std::string coef_str : coef_strs){
-        		poly_coefs.push_back(stof(coef_str));
+        		poly_coeffs.push_back(stof(coef_str));
         	}
         }else if(param[0].compare("hifu_f")==0){
         	hifu_freq = stof(param[1]);
+        }else if(param[0].compare("scale")==0){
+        	scale = stof(param[1]);
+        }else if(param[0].compare("kp")==0){
+        	kp = stof(param[1]);
+        }
 
-        	//  **** HOSSEIN CODE ENDS
+        //  **** HOSSEIN CODE ends HERE
 
-        }else if(param[0].compare("threads")==0){
+        else if(param[0].compare("threads")==0){
             bthreads=true;
             threads = stoi(param[1]);
         }else if(param[0].compare("precision")==0){
@@ -612,10 +622,13 @@ int main(int argc, char **argv) {
         // **** HOSSEIN CODE starts HERE
         std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
         std::cout << "poly coefficients: \n";
-        for(Float poly_coef : poly_coefs){
+        for(Float poly_coef : poly_coeffs){
         	std::cout << "     "<<poly_coef<<"\n";
         }
         std::cout << "hifu frequency = " << hifu_freq << std::endl;
+        std::cout << "scale = " << scale << std::endl;
+        std::cout << "kp = " << kp << std::endl;
+        std::cout << "cylindricalOrHIFU = " << cylindricalOrHIFU << std::endl;
 
         // **** HOSSEIN CODE ends HERE
 #ifdef SPLINE_RIF
@@ -680,6 +693,9 @@ int main(int argc, char **argv) {
                         distribution, gOrKappa,
                         emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_active,
                         sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_active,
+						// HOSSEIN CODE starts HERE
+						cylindricalOrHIFU, poly_coeffs, hifu_freq, scale, kp,
+						// HOSSEIN CODE ends HERE
                         f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, directTol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
                         , rifgridFile

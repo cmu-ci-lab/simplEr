@@ -369,6 +369,8 @@ struct US {
 	int cylindricalOrHIFU; // 1 for cylindir 2 for HIFU
 	std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
 	Float hifu_freq;
+	Float scale = 1000.0;
+	Float kp = 1.402e-5 * 1e-5;
 	/// **** HOSSEIN CODE end HERE
 
 	Float    f_u;          // Ultrasound frequency (1/s or Hz)
@@ -405,9 +407,13 @@ struct US {
     spline::Spline<3> m_spline;
 #endif
 
-    US(int cylindricalOrHIFU, // **** HOSSEIM CODE
+    US(
+    			 int cylindricalOrHIFU, // **** HOSSEIM CODE starts HERE
 				 std::vector<Float> poly_coeffs,
-				 Float hifu_freq,  //**** HOSSEIN CODE
+				 Float hifu_freq,
+				 Float scale,
+				 Float kp,
+				 //**** HOSSEIN CODE ends HERE
 				 const Float& f_u, const Float& speed_u,
                  const Float& n_o, const Float& n_max, const Float& n_clip, const Float& phi_min, const Float& phi_max, const int& mode,
                  const VectorType<Float> &axis_uz, const VectorType<Float> &axis_ux, const VectorType<Float> &p_u, const Float &er_stepsize,
@@ -423,9 +429,11 @@ struct US {
 #endif
     {
     	/// *** HOSSEIN CODE starts HERE
-    	this->cylindricalOrHIFU = cylindricalOrHIFU; // 1 for cylindir 2 for HIFU
-    	this->poly_coeffs     = poly_coeffs;
+    	this->cylindricalOrHIFU = cylindricalOrHIFU; // 1 for cylinder 2 for HIFU
+    	this->poly_coeffs    = poly_coeffs;
     	this->hifu_freq      = hifu_freq;
+    	this->kp			 = kp;
+    	this->scale			 = scale;
     	/// **** HOSSEIN CODE ends HERE
         this->f_u            = f_u;
 		this->speed_u        = speed_u;      
@@ -493,9 +501,11 @@ struct US {
             return n_o;
 /////////    ***** HOSSEIN CODE STARTS here
 #ifndef SPLINE_RIF
-//    	return bessel_RIF(p, scaling);
-
-        return fitted_HIFU_RIF(p, scaling);
+        if(cylindricalOrHIFU == 1){
+        	return bessel_RIF(p, scaling);
+        }else if (cylindricalOrHIFU == 2){
+        	return fitted_HIFU_RIF(p, scaling);
+        }
 #else
     	return spline_RIF(p, scaling);
 #endif
@@ -505,8 +515,11 @@ struct US {
         if(q.x > m_EgapEndLocX || q.x < m_SgapBeginLocX)
             return VectorType<Float>(0.0);
 #ifndef SPLINE_RIF
-//    	return bessel_dRIF(q, scaling);
-    	return fitted_HIFU_dRIF(q, scaling);
+        if(cylindricalOrHIFU == 1){
+        	return bessel_dRIF(q, scaling);
+        }else if (cylindricalOrHIFU == 2){
+        	return fitted_HIFU_dRIF(q, scaling);
+        }
 #else
     	return spline_dRIF(q, scaling);
 #endif
@@ -712,6 +725,14 @@ public:
 			const Float &sensor_lens_focalLength,
 			const bool &sensor_lens_active,
 			//Ultrasound parameters: a lot of them are currently not used
+
+			// **** HOSSEIN CODE starts HERE
+			const int cylindricalOrHIFU, // 1 for cylindir 2 for HIFU
+			const std::vector<Float> poly_coeffs,
+			const Float hifu_freq,
+			const Float scale,
+			const Float kp,
+			// **** HOSSEIN CODE ends HERE
 			const Float& f_u,
 			const Float& speed_u,
 			const Float& n_o,
@@ -741,7 +762,11 @@ public:
 #endif
 				m_camera(viewOrigin, viewDir, viewHorizontal, viewPlane, pathlengthRange, useBounceDecomposition, sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_active),
 				m_bsdf(FPCONST(1.0), ior),
-				m_us(f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, tol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
+				m_us(
+						// **** HOSSEIN CODE starts HERE
+						cylindricalOrHIFU, poly_coeffs, hifu_freq, scale, kp,
+						// **** HOSSEIN CODE ends HERE
+						f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, tol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
 //						, xmin, xmax, N
 						, rifgridFile
