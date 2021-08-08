@@ -140,84 +140,98 @@ double US<VectorType>::bessel_RIF(const VectorType<Float> &p, const Float &scali
 	return n_o + n_max * scaling * jn(mode, k_r*r) * std::cos(mode*phi);
 }
 
-//////////////////////////// HERE IS MY EDIT
+//////////////////////////// HOSSEIN CODE starts HERE
 
-Float my_poly_eval(Float x, Float *coeffs, int degree, bool diff){
+Float my_poly_eval(Float x, std::vector<Float> coeffs, bool diff, Float scale){
 	Float ans = 0;
-	for (int i=(0+diff); i <= degree; i++){
-		Float temp_value = std::pow(1000 * x, i - diff)*coeffs[degree - i]*((diff) ? i : 1);
+	for (int i=(0+diff); i < coeffs.size(); i++){
+		Float power = coeffs.size() - i - 1;
+		Float temp_value =
+				coeffs[i]
+			    * std::pow(scale * x, power)
+				* ( diff ? (power + diff) : 1);
 //		std::cout<<"        temp value is:" <<temp_value << "\n";
 		ans += temp_value;
 	}
 	return ans;
 }
 
+
 template <template <typename> class VectorType>
 double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &scaling) const{
-//    VectorType<Float> p_axis = p_u + dot(p - p_u , axis_uz)*axis_uz; // point on the axis closest to p
 
-    // so we have Z Y X order ?
-    const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
+    /* we should assume correct order, where lights travels in Z
+     * but we should get the i-th element only by doting in corresponding unit vectors
+     */
 
+	Float scale = 1000;
+    if (n_max != 0) { // to make things faster we put this in if statement
+		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
 
-    // constant values
-    Float freq_along_y = 1000*2.3155;
-    int poly_degree = 6;
-    Float poly_coeffs[7] = {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000};
+		// finding distances
+		VectorType<Float> point_on_HIFU_axis = p_u + dot(p - p_u , axis_uy) * axis_uy; // assuming p_u is the center
+		Float distance_to_HIFU_axis = (p - point_on_HIFU_axis).length();
+		Float distance_to_y_peak = dot(p - p_u, axis_uy);
 
-    // finding distances
-    VectorType<Float> point_on_HIFU_axis = p_u + dot(p - p_u , axis_uy) * axis_uy; // assuming p_u is the center
-    Float distance_to_HIFU_axis = (p - point_on_HIFU_axis).length();
-    Float distance_to_y_peak = dot(p - p_u, axis_uy);
-
-    Float pressure = std::cos(2*M_PI*freq_along_y *
-    		distance_to_y_peak)*my_poly_eval(distance_to_HIFU_axis, poly_coeffs, poly_degree, false);
-//    std::cout<<"pressure at "<<p << "\n    "<<pressure<<"\n";
-    Float k = 1.402e-5 * 1e-5; // in Pa^-1
-    Float n_o = 1.333;
-    return n_o + k * pressure;
+		Float pressure =
+				std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
+				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, scale);
+	//    std::cout<<"pressure at "<<p << "\n    "<<pressure<<"\n";
+		Float k = 1.402e-5 * 1e-5; // in Pa^-1
+		return n_o + k * pressure;
+    }
+    else {
+    	return n_o;
+    }
 }
+
 
 
 template <template <typename> class VectorType>
 const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float> &q, const Float &scaling) const{
 
-//    VectorType<Float> p_axis = p_u + dot(q - p_u, axis_uz) * axis_uz; // point on the axis closest to p
+	/* we should assume correct order, where lights travels in Z
+	 * but we should get the i-th element only by doting in corresponding unit vectors
+	 */
+	Float scale = 1000;
+	if (n_max != 0) { // to make things faster we put this in if statement
+		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
 
-    const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
-
-
-    // constant values
-    Float freq_along_y = 1000*2.3155;
-    int poly_degree = 6;
-    Float poly_coeffs[7] = {-1221000.0,    0.0,    6580000.0,   -0.0,   -11627000.0,   -0.0,    6185000};
-
-    // finding distances
-    VectorType<Float> point_on_HIFU_axis = p_u + dot(q - p_u , axis_uy) * axis_uy; // assuming p_u is the center
-    Float distance_to_HIFU_axis = (q - point_on_HIFU_axis).length();
-    Float distance_to_y_peak = dot(q - p_u, axis_uy);
+		// finding distances
+		VectorType<Float> point_on_HIFU_axis = p_u + dot(q - p_u , axis_uy) * axis_uy; // assuming p_u is the center
+		Float distance_to_HIFU_axis = (q - point_on_HIFU_axis).length();
+		Float distance_to_y_peak = dot(q - p_u, axis_uy);
 
 
-    Float dP_dy = -2.0*M_PI*freq_along_y*
-    		my_poly_eval(distance_to_HIFU_axis, poly_coeffs, poly_degree, false)*
-			std::sin(2*M_PI*freq_along_y * distance_to_y_peak);
+		Float dP_dy = -2.0*M_PI*hifu_freq
+				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, scale)
+				* std::sin(2*M_PI*hifu_freq * distance_to_y_peak);
 
-    Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, poly_degree, true)
-    		* std::cos(2*M_PI*freq_along_y * distance_to_y_peak)
-			* dot(q - p_u, axis_ux) / distance_to_y_peak;
+		Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, scale)
+				* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
+				* dot(q - p_u, axis_ux) / distance_to_y_peak;
 
-    Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, poly_degree, true)
-        		* std::cos(2*M_PI*freq_along_y * distance_to_y_peak)
-    			* dot(q - p_u, axis_uz) / distance_to_y_peak;
-    Float k = 1.402e-5 * 1e-5;
-    VectorType<Float> dn(k * dP_dx,
-        		         k * dP_dy,
-						 k * dP_dz);
-//    std::cout<<"gradiant at "<<q<<"\n    "<< dn <<"\n";
-    return dn;
+		Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, scale)
+					* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
+					* dot(q - p_u, axis_uz) / distance_to_y_peak;
+
+		Float k = 1.402e-5 * 1e-5;
+
+		VectorType<Float> dn(k * dP_dx,
+							 k * dP_dy,
+							 k * dP_dz);
+		//std::cout<<"gradiant at "<<q<<"\n    "<< dn <<"\n";
+		return dn;
+	}
+	else{
+		VectorType<Float> dn(0.0,
+								 0.0,
+								 0.0);
+		return dn;
+	}
 }
 
-/////////////////// /// MY EDIT ENDS HERE!
+/////////////////// HOSSEIN CODE ENDS HERE!
 
 template <template <typename> class VectorType>
 const VectorType<Float> US<VectorType>::bessel_dRIF(const VectorType<Float> &q, const Float &scaling) const{

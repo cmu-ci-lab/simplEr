@@ -365,6 +365,12 @@ protected:
 
 template <template <typename> class VectorType>
 struct US {
+	/// **** HOSSEIN CODE starts HERE
+	int cylindricalOrHIFU; // 1 for cylindir 2 for HIFU
+	std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
+	Float hifu_freq;
+	/// **** HOSSEIN CODE end HERE
+
 	Float    f_u;          // Ultrasound frequency (1/s or Hz)
 	Float    speed_u;      // Ultrasound speed (m/s)
 	Float  wavelength_u; // (m)
@@ -399,7 +405,10 @@ struct US {
     spline::Spline<3> m_spline;
 #endif
 
-    US(const Float& f_u, const Float& speed_u,
+    US(int cylindricalOrHIFU, // **** HOSSEIM CODE
+				 std::vector<Float> poly_coeffs,
+				 Float hifu_freq,  //**** HOSSEIN CODE
+				 const Float& f_u, const Float& speed_u,
                  const Float& n_o, const Float& n_max, const Float& n_clip, const Float& phi_min, const Float& phi_max, const int& mode,
                  const VectorType<Float> &axis_uz, const VectorType<Float> &axis_ux, const VectorType<Float> &p_u, const Float &er_stepsize,
 				 const Float &tol, const Float &rrWeight, const int &precision, const Float &EgapEndLocX, const Float &SgapBeginLocX, const bool &useInitializationHack
@@ -413,6 +422,11 @@ struct US {
 					 :m_spline(rifgridFile)
 #endif
     {
+    	/// *** HOSSEIN CODE starts HERE
+    	this->cylindricalOrHIFU = cylindricalOrHIFU; // 1 for cylindir 2 for HIFU
+    	this->poly_coeffs     = poly_coeffs;
+    	this->hifu_freq      = hifu_freq;
+    	/// **** HOSSEIN CODE ends HERE
         this->f_u            = f_u;
 		this->speed_u        = speed_u;      
 		this->wavelength_u   = ((double) speed_u)/f_u; 
@@ -477,8 +491,10 @@ struct US {
     inline Float RIF(const VectorType<Float> &p, const Float &scaling) const{
         if(p.x > m_EgapEndLocX || p.x < m_SgapBeginLocX)
             return n_o;
+/////////    ***** HOSSEIN CODE STARTS here
 #ifndef SPLINE_RIF
 //    	return bessel_RIF(p, scaling);
+
         return fitted_HIFU_RIF(p, scaling);
 #else
     	return spline_RIF(p, scaling);
@@ -496,6 +512,7 @@ struct US {
 #endif
     }
 
+    ///////// **** HOSSEIN CODE ends here
     inline const Matrix3x3 HessianRIF(const VectorType<Float> &p, const Float &scaling) const{
         if(p.x > m_EgapEndLocX || p.x < m_SgapBeginLocX)
             return Matrix3x3(0.0);

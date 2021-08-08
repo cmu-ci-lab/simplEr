@@ -119,6 +119,15 @@ int main(int argc, char **argv) {
     bool printInputs = true;
 
     /*
+         **** HOSSEIN CODE starts HERE
+         * Initialize hifu parameters
+     */
+    int poly_degree = 0;
+    std::vector<Float> poly_coefs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
+    Float hifu_freq = FPCONST(2315.5);
+    //**** HOSSEIN CODE ends HERE
+
+    /*
      * Initialize US parameters
      */
     Float f_u = 848*1e3;
@@ -214,7 +223,7 @@ int main(int argc, char **argv) {
         }
         if(param[0].compare("stricts")==0){ 
             transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
-            if(param[1].compare("true")==0) 
+            if(param[1].compare("true")==0)
                 stricts = true;
             else if(param[1].compare("false")==0) 
                 stricts = false;
@@ -222,6 +231,21 @@ int main(int argc, char **argv) {
                 std::cerr << "stricts should be either true or false; Argument " << param[1] << " not recognized" << std::endl;
                 return -1;
             }
+
+            //  **** HOSSEIN CODE
+
+        }else if(param[0].compare("poly_coefs")==0){
+        	std::vector<std::string> coef_strs = tokenize(param[1], ",");
+        	poly_degree = coef_strs.size();
+//        	std::transform(coef_strs.cbegin(), coef_strs.cend(), poly_coefs.begin(), std::stof);
+        	for(std::string coef_str : coef_strs){
+        		poly_coefs.push_back(stof(coef_str));
+        	}
+        }else if(param[0].compare("hifu_f")==0){
+        	hifu_freq = stof(param[1]);
+
+        	//  **** HOSSEIN CODE ENDS
+
         }else if(param[0].compare("threads")==0){
             bthreads=true;
             threads = stoi(param[1]);
@@ -585,6 +609,15 @@ int main(int argc, char **argv) {
         std::cout << "sensor_lens_aperture = " << sensor_lens_aperture << std::endl;
         std::cout << "sensor_lens_focalLength = " << sensor_lens_focalLength << std::endl;
         std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
+        // **** HOSSEIN CODE starts HERE
+        std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
+        std::cout << "poly coefficients: \n";
+        for(Float poly_coef : poly_coefs){
+        	std::cout << "     "<<poly_coef<<"\n";
+        }
+        std::cout << "hifu frequency = " << hifu_freq << std::endl;
+
+        // **** HOSSEIN CODE ends HERE
 #ifdef SPLINE_RIF
         std::cout << "rifgridFile = " << rifgridFile << std::endl;
 #endif
