@@ -142,13 +142,20 @@ double US<VectorType>::bessel_RIF(const VectorType<Float> &p, const Float &scali
 
 //////////////////////////// HOSSEIN CODE starts HERE
 
-Float my_poly_eval(Float x, std::vector<Float> coeffs, bool diff, Float scale){
+Float my_poly_eval(Float x, std::vector<Float> coeffs, bool diff, Float scale, Float eval_limit){
+	if (x > eval_limit){
+		if (diff){
+			return 0.0;
+		}
+		return my_poly_eval(eval_limit, coeffs, diff, scale, eval_limit);
+	}
 	Float ans = 0;
+	x = x * scale;
 	for (int i=(0+diff); i < coeffs.size(); i++){
 		Float power = coeffs.size() - i - 1;
 		Float temp_value =
 				coeffs[i]
-			    * std::pow(scale * x, power)
+			    * std::pow(x, power)
 				* ( diff ? (power + diff) : 1);
 //		std::cout<<"        temp value is:" <<temp_value << "\n";
 		ans += temp_value;
@@ -174,7 +181,7 @@ double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &
 
 		Float pressure =
 				std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
-				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, scale);
+				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, x_scale, poly_eval_limit);
 	//    std::cout<<"pressure at "<<p << "\n    "<<pressure<<"\n";
 
 		return n_o + kp * pressure;
@@ -203,14 +210,14 @@ const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float>
 
 
 		Float dP_dy = -2.0*M_PI*hifu_freq
-				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, scale)
+				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, x_scale, poly_eval_limit)
 				* std::sin(2*M_PI*hifu_freq * distance_to_y_peak);
 
-		Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, scale)
+		Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
 				* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
 				* dot(q - p_u, axis_ux) / distance_to_HIFU_axis;
 
-		Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, scale)
+		Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
 					* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
 					* dot(q - p_u, axis_uz) / distance_to_HIFU_axis;
 

@@ -110,6 +110,8 @@ int main(int argc, char **argv) {
      */
     Float emitter_lens_aperture = .015;
     Float emitter_lens_focalLength = .015;
+    std::string emitter_lens_type = "spherical";
+    std::string sensor_lens_type = "spherical";
     bool emitter_lens_active = false;
 
     Float sensor_lens_aperture = .015;
@@ -119,15 +121,15 @@ int main(int argc, char **argv) {
     bool printInputs = true;
 
     /*
-         **** HOSSEIN CODE starts HERE
          * Initialize hifu parameters
      */
     int cylindricalOrHIFU = 1;
-    Float scale = 1000.0;
+    Float x_scale = 1000.0;
+    Float poly_eval_scale = 1.0;
     Float kp = 1.402e-5 * 1e-5;
     std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
+    Float poly_eval_limit = 0.001;
     Float hifu_freq = FPCONST(2315.5);
-    //**** HOSSEIN CODE ends HERE
 
     /*
      * Initialize US parameters
@@ -236,7 +238,6 @@ int main(int argc, char **argv) {
 
         }
 
-        // HOSSEIN CODE starts HERE
 
         else if(param[0].compare("cylindricalOrHIFU")==0){
         	cylindricalOrHIFU = stoi(param[1]);
@@ -246,15 +247,18 @@ int main(int argc, char **argv) {
         	for(std::string coef_str : coef_strs){
         		poly_coeffs.push_back(stof(coef_str));
         	}
+        }else if(param[0].compare("poly_eval_limit")==0){
+        	poly_eval_limit = stof(param[1]);
         }else if(param[0].compare("hifu_f")==0){
         	hifu_freq = stof(param[1]);
-        }else if(param[0].compare("scale")==0){
-        	scale = stof(param[1]);
+        }else if(param[0].compare("x_scale")==0){
+        	x_scale = stof(param[1]);
+        }else if(param[0].compare("poly_eval_scale")==0){
+        	poly_eval_scale = stof(param[1]);
         }else if(param[0].compare("kp")==0){
         	kp = stof(param[1]);
         }
 
-        //  **** HOSSEIN CODE ends HERE
 
         else if(param[0].compare("threads")==0){
             bthreads=true;
@@ -414,6 +418,16 @@ int main(int argc, char **argv) {
         }else if(param[0].compare("emitter_lens_focalLength")==0){
             bemitter_lens_focalLength=true;
             emitter_lens_focalLength = stof(param[1]);
+        }else if(param[0].compare("emitter_lens_type")==0){
+            transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
+            if(param[1].compare("spherical")==0)
+            	emitter_lens_type = param[1];
+            else if(param[1].compare("cylindrical")==0)
+            	emitter_lens_type = param[1];
+            else{
+                std::cerr << "sensor_lens_active should be either spherical or cylindrical; Argument " << param[1] << " not recognized" << std::endl;
+                return -1;
+            }
         }else if(param[0].compare("emitter_lens_active")==0){
             bemitter_lens_active=true;
             transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
@@ -422,7 +436,7 @@ int main(int argc, char **argv) {
             else if(param[1].compare("false")==0)
                 emitter_lens_active = false;
             else{
-                std::cerr << "emitter_lens_active should be either true or false; Argument " << param[1] << " not recognized" << std::endl;
+                std::cerr << "emitter_lens_type should be either true or false; Argument " << param[1] << " not recognized" << std::endl;
                 return -1;
             }
         }else if(param[0].compare("sensor_distance")==0){
@@ -434,6 +448,16 @@ int main(int argc, char **argv) {
         }else if(param[0].compare("sensor_lens_focalLength")==0){
             bsensor_lens_focalLength=true;
             sensor_lens_focalLength = stof(param[1]);
+        }else if(param[0].compare("sensor_lens_type")==0){
+            transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
+            if(param[1].compare("spherical")==0)
+            	sensor_lens_type = param[1];
+            else if(param[1].compare("cylindrical")==0)
+            	sensor_lens_type = param[1];
+            else{
+                std::cerr << "sensor_lens_type should be either spherical or cylindrical; Argument " << param[1] << " not recognized" << std::endl;
+                return -1;
+            }
         }else if(param[0].compare("sensor_lens_active")==0){
             bsensor_lens_active=true;
             transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
@@ -614,23 +638,24 @@ int main(int argc, char **argv) {
         std::cout << "emitter_distance = " << emitter_distance << std::endl;
         std::cout << "emitter_lens_aperture = " << emitter_lens_aperture << std::endl;
         std::cout << "emitter_lens_focalLength = " << emitter_lens_focalLength << std::endl;
+        std::cout << "emitter_lens_type = " << emitter_lens_type << std::endl;
         std::cout << "emitter_lens_active = " << emitter_lens_active << std::endl;
         std::cout << "sensor_distance = " << sensor_distance << std::endl;
         std::cout << "sensor_lens_aperture = " << sensor_lens_aperture << std::endl;
         std::cout << "sensor_lens_focalLength = " << sensor_lens_focalLength << std::endl;
         std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
-        // **** HOSSEIN CODE starts HERE
         std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
         std::cout << "poly coefficients: \n";
         for(Float poly_coef : poly_coeffs){
         	std::cout << "     "<<poly_coef<<"\n";
         }
+        std::cout << "poly evaluation limit = " << poly_eval_limit << std::endl;
         std::cout << "hifu frequency = " << hifu_freq << std::endl;
-        std::cout << "scale = " << scale << std::endl;
+        std::cout << "x_scale = " << x_scale << std::endl;
+        std::cout << "poly_eval_scale = " << poly_eval_scale << std::endl;
         std::cout << "kp = " << kp << std::endl;
         std::cout << "cylindricalOrHIFU = " << cylindricalOrHIFU << std::endl;
 
-        // **** HOSSEIN CODE ends HERE
 #ifdef SPLINE_RIF
         std::cout << "rifgridFile = " << rifgridFile << std::endl;
 #endif
@@ -691,11 +716,9 @@ int main(int argc, char **argv) {
                         lightOrigin, lightDir, halfThetaLimit, projectorTexture, lightPlane, Li,
                         viewOrigin, viewDir, viewX, viewPlane, pathlengthRange, useBounceDecomposition,
                         distribution, gOrKappa,
-                        emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_active,
-                        sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_active,
-						// HOSSEIN CODE starts HERE
-						cylindricalOrHIFU, poly_coeffs, hifu_freq, scale, kp,
-						// HOSSEIN CODE ends HERE
+                        emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_type, emitter_lens_active,
+                        sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_type, sensor_lens_active,
+						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp,
                         f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, directTol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
                         , rifgridFile

@@ -88,34 +88,56 @@ protected:
 template <template <typename> class VectorType>
 struct Lens {
     Lens(const VectorType<Float> &origin, const Float &aperture, 
-                    const Float &focalLength, const bool &active)
+                    const Float &focalLength, const std::string &emitter_lens_type, const bool &active)
                     : m_origin(origin), 
                       m_squareApertureRadius(aperture*aperture),
                       m_focalLength(focalLength),
-                      m_active(active){
+                      m_active(active),
+					  m_lens_type(emitter_lens_type){
     }
 
     inline const bool deflect(const VectorType<Float> &pos, VectorType<Float> &dir, Float &totalDistance) const{
-        /* Deflection computation: 
-         * Point going through the center of lens and parallel to dir is [pos.x, 0, 0]. Ray from this point goes straight
-         * This ray meets focal plane at (pos.x - d[0] * f/d[0], -d[1] * f/d[0], -d[2] * f/d[0]) (assuming -x direction of propagation of light)
-         * Original ray deflects to pass through this point
-         * The negative distance (HACK) travelled by this ray at the lens is -f/d[0] - norm(focalpoint_Pos - original_Pos)
-         */
-    	Float squareDistFromLensOrigin = 0.0f;
-    	for(int i = 1; i < pos.dim; i++)
-    		squareDistFromLensOrigin += pos[i]*pos[i];
-    	if(squareDistFromLensOrigin > m_squareApertureRadius)
-    		return false;
+    	if(m_lens_type.compare("spherical") == 0){
+    		/* Deflection computation:
+    		         * Point going through the center of lens and parallel to dir is [pos.x, 0, 0]. Ray from this point goes straight
+    		         * This ray meets focal plane at (pos.x - d[0] * f/d[0], -d[1] * f/d[0], -d[2] * f/d[0]) (assuming -x direction of propagation of light)
+    		         * Original ray deflects to pass through this point
+    		         * The negative distance (HACK) travelled by this ray at the lens is -f/d[0] - norm(focalpoint_Pos - original_Pos)
+    		         */
+        	Float squareDistFromLensOrigin = 0.0f;
+        	for(int i = 1; i < pos.dim; i++)
+        		squareDistFromLensOrigin += pos[i]*pos[i];
+        	if(squareDistFromLensOrigin > m_squareApertureRadius)
+        		return false;
 
-        Assert(pos.x == m_origin.x);
-        Float invd = -1/dir[0];
-        dir[0] = -m_focalLength;
-        dir[1] = dir[1]*invd*m_focalLength - pos[1];
-        dir[2] = dir[2]*invd*m_focalLength - pos[2];
-        totalDistance += m_focalLength*invd - dir.length();
-        dir.normalize();
-        return true; // should return additional path length added by the lens.
+            Assert(pos.x == m_origin.x);
+            Float invd = -1/dir[0];
+            dir[0] = -m_focalLength;
+            dir[1] = dir[1]*invd*m_focalLength - pos[1];
+            dir[2] = dir[2]*invd*m_focalLength - pos[2];
+            totalDistance += m_focalLength*invd - dir.length();
+            dir.normalize();
+            return true; // should return additional path length added by the lens.
+    	}
+
+    	else if(m_lens_type.compare("cylindrical") == 0){
+			Float squareDistFromLensOrigin = 0.0f;
+			for(int i = 1; i < pos.dim; i++)
+				squareDistFromLensOrigin += pos[i]*pos[i];
+			if(squareDistFromLensOrigin > m_squareApertureRadius)
+				return false;
+
+			Assert(pos.x == m_origin.x);
+			Float invd = -1/dir[0];
+			dir[0] = -m_focalLength;
+			dir[1] = dir[1]*invd*m_focalLength - pos[1];
+			dir[2] = dir[2]*invd*m_focalLength;   // here I am keeping the z location, where y is the direction of HIFU's sinusoidal modulation
+			totalDistance += m_focalLength*invd - dir.length();
+			dir.normalize();
+			return true; // should return additional path length added by the lens.
+    	}else{
+    		std::cout<<"this cannot happen! emitter_lens_type is checked before.\n";
+    	}
     }
 
 public:
@@ -138,6 +160,7 @@ protected:
     VectorType<Float> m_origin;
     Float m_squareApertureRadius; //radius of the aperture
     Float m_focalLength;
+    std::string m_lens_type;
     bool m_active; // Is the lens present or absent
 };
 
@@ -153,6 +176,7 @@ struct Camera {
 		const VectorType<Float> &lens_origin,
 		const Float &lens_aperture,
 		const Float &lens_focalLength,
+		const std::string &lens_type,
 		const bool &lens_active
 		) :
 			m_origin(origin),
@@ -162,7 +186,7 @@ struct Camera {
 			m_plane(plane),
 			m_pathlengthRange(pathlengthRange),
 			m_useBounceDecomposition(useBounceDecomposition),
-			m_lens(lens_origin, lens_aperture, lens_focalLength, lens_active){
+			m_lens(lens_origin, lens_aperture, lens_focalLength, lens_type, lens_active){
 		Assert(((m_pathlengthRange.x == -FPCONST(1.0)) && (m_pathlengthRange.y == -FPCONST(1.0))) ||
 				((m_pathlengthRange.x >= 0) && (m_pathlengthRange.y >= m_pathlengthRange.x)));
 		m_dir.normalize();
@@ -244,14 +268,14 @@ struct AreaTexturedSource {
 	enum EmitterType{directional, diffuse}; //diffuse is still not implemented
 
 	AreaTexturedSource(const VectorType<Float> &origin, const VectorType<Float> &dir, const Float &halfThetaLimit, const std::string& filename,
-			const tvec::Vec2f &plane, const Float &Li, const VectorType<Float> &lens_origin, const Float &lens_aperture, const Float &lens_focalLength, const bool &lens_active, const EmitterType &emittertype = EmitterType::directional)
+			const tvec::Vec2f &plane, const Float &Li, const VectorType<Float> &lens_origin, const Float &lens_aperture, const Float &lens_focalLength,const std::string &emitter_lens_type, const bool &lens_active, const EmitterType &emittertype = EmitterType::directional)
 			: m_origin(origin),
 			  m_dir(dir),
 			  m_halfThetaLimit(halfThetaLimit),
 			  m_emittertype(emittertype),
 			  m_plane(plane),
 			  m_Li(Li),
-			  m_lens(lens_origin, lens_aperture, lens_focalLength, lens_active){
+			  m_lens(lens_origin, lens_aperture, lens_focalLength, emitter_lens_type, lens_active){
 		m_texture.readFile(filename);
 		int _length = m_texture.getXRes()*m_texture.getYRes();
 		m_pixelsize.x = m_plane.x/m_texture.getXRes();
@@ -368,8 +392,10 @@ struct US {
 	/// **** HOSSEIN CODE starts HERE
 	int cylindricalOrHIFU; // 1 for cylindir 2 for HIFU
 	std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
+	Float poly_eval_limit;
 	Float hifu_freq;
-	Float scale = 1000.0;
+	Float x_scale = 1000.0;
+	Float poly_eval_scale;
 	Float kp = 1.402e-5 * 1e-5;
 	/// **** HOSSEIN CODE end HERE
 
@@ -408,10 +434,13 @@ struct US {
 #endif
 
     US(
-    			 int cylindricalOrHIFU, // **** HOSSEIM CODE starts HERE
+    			 // **** HOSSEIM CODE starts HERE
+    			 int cylindricalOrHIFU,
 				 std::vector<Float> poly_coeffs,
+				 Float poly_eval_limit,
 				 Float hifu_freq,
-				 Float scale,
+				 Float x_scale,
+				 Float poly_eval_scale,
 				 Float kp,
 				 //**** HOSSEIN CODE ends HERE
 				 const Float& f_u, const Float& speed_u,
@@ -430,35 +459,40 @@ struct US {
     {
     	/// *** HOSSEIN CODE starts HERE
     	this->cylindricalOrHIFU = cylindricalOrHIFU; // 1 for cylinder 2 for HIFU
-    	this->poly_coeffs    = poly_coeffs;
-    	this->hifu_freq      = hifu_freq;
-    	this->kp			 = kp;
-    	this->scale			 = scale;
+    	this->poly_coeffs     = poly_coeffs;
+    	this->poly_eval_limit = poly_eval_limit;
+    	this->hifu_freq       = hifu_freq;
+    	this->kp			  = kp;
+    	this->x_scale		  = x_scale;
+    	this->poly_eval_scale = poly_eval_scale;
+    	for (int i=0; i < this->poly_coeffs.size(); i++){
+    		this->poly_coeffs[i] *= this->poly_eval_scale;
+    	}
     	/// **** HOSSEIN CODE ends HERE
-        this->f_u            = f_u;
-		this->speed_u        = speed_u;      
-		this->wavelength_u   = ((double) speed_u)/f_u; 
-		this->n_o            = n_o;         
-		this->n_max          = n_max;      
-		this->n_clip         = n_clip;      
-		this->n_maxScaling   = n_clip/n_max;      
-		this->phi_min        = phi_min;
-		this->phi_max        = phi_max;
-		this->k_r            = (2*M_PI)/wavelength_u;
-		this->mode           = mode;     
+        this->f_u             = f_u;
+		this->speed_u         = speed_u;
+		this->wavelength_u    = ((double) speed_u)/f_u;
+		this->n_o             = n_o;
+		this->n_max           = n_max;
+		this->n_clip          = n_clip;
+		this->n_maxScaling    = n_clip/n_max;
+		this->phi_min         = phi_min;
+		this->phi_max         = phi_max;
+		this->k_r             = (2*M_PI)/wavelength_u;
+		this->mode            = mode;
 
-		this->axis_uz        = axis_uz;
-		this->axis_ux        = axis_ux;
-		this->p_u            = p_u;
+		this->axis_uz         = axis_uz;
+		this->axis_ux         = axis_ux;
+		this->p_u             = p_u;
 
-		this->er_stepsize    = er_stepsize;
+		this->er_stepsize     = er_stepsize;
 
-		this->tol 			 = tol;
-		this->rrWeight       = rrWeight;
-		this->invrrWeight    = 1/rrWeight;
-		this->m_precision    = precision;
-        this->m_EgapEndLocX  = EgapEndLocX;
-        this->m_SgapBeginLocX= SgapBeginLocX;
+		this->tol 			  = tol;
+		this->rrWeight        = rrWeight;
+		this->invrrWeight     = 1/rrWeight;
+		this->m_precision     = precision;
+        this->m_EgapEndLocX   = EgapEndLocX;
+        this->m_SgapBeginLocX = SgapBeginLocX;
 
         this->m_useInitializationHack = useInitializationHack;
 
@@ -718,21 +752,24 @@ public:
 			const VectorType<Float> &emitter_lens_origin,
 			const Float &emitter_lens_aperture,
 			const Float &emitter_lens_focalLength,
+			const std::string &emitter_lens_type,
 			const bool &emitter_lens_active,
 			// for sensor lens
 			const VectorType<Float> &sensor_lens_origin,
 			const Float &sensor_lens_aperture,
 			const Float &sensor_lens_focalLength,
+			const std::string &sensor_lens_type,
 			const bool &sensor_lens_active,
-			//Ultrasound parameters: a lot of them are currently not used
+			// Ultrasound parameters: a lot of them are currently not used
 
-			// **** HOSSEIN CODE starts HERE
 			const int cylindricalOrHIFU, // 1 for cylindir 2 for HIFU
 			const std::vector<Float> poly_coeffs,
+			const Float poly_eval_limit,
 			const Float hifu_freq,
-			const Float scale,
+			const Float x_scale,
+			const Float poly_eval_scale,
 			const Float kp,
-			// **** HOSSEIN CODE ends HERE
+
 			const Float& f_u,
 			const Float& speed_u,
 			const Float& n_o,
@@ -758,13 +795,13 @@ public:
 #ifndef PROJECTOR
 				m_source(lightOrigin, lightDir, lightPlane, Li),
 #else                
-				m_source(lightOrigin, lightDir, halfThetaLimit, lightTextureFile, lightPlane, Li, emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_active),
+				m_source(lightOrigin, lightDir, halfThetaLimit, lightTextureFile, lightPlane, Li, emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_type, emitter_lens_active),
 #endif
-				m_camera(viewOrigin, viewDir, viewHorizontal, viewPlane, pathlengthRange, useBounceDecomposition, sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_active),
+				m_camera(viewOrigin, viewDir, viewHorizontal, viewPlane, pathlengthRange, useBounceDecomposition, sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_type, sensor_lens_active),
 				m_bsdf(FPCONST(1.0), ior),
 				m_us(
 						// **** HOSSEIN CODE starts HERE
-						cylindricalOrHIFU, poly_coeffs, hifu_freq, scale, kp,
+						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp,
 						// **** HOSSEIN CODE ends HERE
 						f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, tol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
