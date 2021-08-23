@@ -127,6 +127,8 @@ int main(int argc, char **argv) {
     Float x_scale = 1000.0;
     Float poly_eval_scale = 1.0;
     Float kp = 1.402e-5 * 1e-5;
+    Float rotation_angle = M_PI/2;
+    bool do_rotate = false;
     std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
     Float poly_eval_limit = 0.001;
     Float hifu_freq = FPCONST(2315.5);
@@ -257,6 +259,18 @@ int main(int argc, char **argv) {
         	poly_eval_scale = stof(param[1]);
         }else if(param[0].compare("kp")==0){
         	kp = stof(param[1]);
+        }else if(param[0].compare("rotation_angle")==0){
+            rotation_angle = stof(param[1]);
+        }else if(param[0].compare("do_rotate")==0){
+            transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
+            if(param[1].compare("true")==0)
+                do_rotate = true;
+            else if(param[1].compare("false")==0)
+                do_rotate = false;
+            else{
+                std::cerr << "do_rotate should be either true or false; Argument " << param[1] << " not recognized" << std::endl;
+                return -1;
+            }
         }
 
 
@@ -653,6 +667,8 @@ int main(int argc, char **argv) {
         std::cout << "hifu frequency = " << hifu_freq << std::endl;
         std::cout << "x_scale = " << x_scale << std::endl;
         std::cout << "poly_eval_scale = " << poly_eval_scale << std::endl;
+        std::cout << "do_rotate = " << do_rotate << std::endl;
+        std::cout << "rotation_angle = " << rotation_angle << std::endl;
         std::cout << "kp = " << kp << std::endl;
         std::cout << "cylindricalOrHIFU = " << cylindricalOrHIFU << std::endl;
 
@@ -708,6 +724,7 @@ int main(int argc, char **argv) {
      */
     const tvec::Vec3f axis_uz(-FPCONST(1.0), FPCONST(0.0), FPCONST(0.0));
     const tvec::Vec3f axis_ux( FPCONST(0.0), FPCONST(0.0), FPCONST(1.0));
+    const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
     const tvec::Vec3f p_u(FPCONST(0.0),  FPCONST(0.0), FPCONST(0.0));
 
     const med::Medium medium(sigmaT, albedo, phase);
@@ -718,8 +735,8 @@ int main(int argc, char **argv) {
                         distribution, gOrKappa,
                         emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_type, emitter_lens_active,
                         sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_type, sensor_lens_active,
-						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp,
-                        f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, directTol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
+						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp, rotation_angle, do_rotate,
+                        f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, axis_uy, p_u, er_stepsize, directTol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
                         , rifgridFile
 //                      , xmin, xmax, N

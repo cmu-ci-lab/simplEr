@@ -12,6 +12,7 @@
 #include <vector>
 #include <chrono>
 
+#include <algorithm>
 #include "constants.h"
 #include "image.h"
 #include "phase.h"
@@ -396,6 +397,8 @@ struct US {
 	Float hifu_freq;
 	Float x_scale = 1000.0;
 	Float poly_eval_scale;
+	Float rotation_angle = M_PI/2;
+	bool do_rotate = false;
 	Float kp = 1.402e-5 * 1e-5;
 	/// **** HOSSEIN CODE end HERE
 
@@ -414,6 +417,13 @@ struct US {
 
     VectorType<Float>    axis_uz;          // Ultrasound axis
     VectorType<Float>    axis_ux;          // Ultrasound x-axis. Need to compute angle as mode > 0 is a function of phi
+    VectorType<Float>    axis_uy;
+
+    VectorType<Float>    rot_axis_uz;          // rotated axis
+    VectorType<Float>    rot_axis_ux;          // rotated x-axis
+    VectorType<Float>    rot_axis_uy;
+
+    VectorType<Float>    temp_axis_holder;
 
     VectorType<Float>    p_u;             // A point on the ultra sound axis
 
@@ -434,7 +444,7 @@ struct US {
 #endif
 
     US(
-    			 // **** HOSSEIM CODE starts HERE
+
     			 int cylindricalOrHIFU,
 				 std::vector<Float> poly_coeffs,
 				 Float poly_eval_limit,
@@ -442,10 +452,12 @@ struct US {
 				 Float x_scale,
 				 Float poly_eval_scale,
 				 Float kp,
-				 //**** HOSSEIN CODE ends HERE
+				 Float rotation_angle,
+				 bool do_rotate,
+
 				 const Float& f_u, const Float& speed_u,
                  const Float& n_o, const Float& n_max, const Float& n_clip, const Float& phi_min, const Float& phi_max, const int& mode,
-                 const VectorType<Float> &axis_uz, const VectorType<Float> &axis_ux, const VectorType<Float> &p_u, const Float &er_stepsize,
+                 const VectorType<Float> &axis_uz, const VectorType<Float> &axis_ux, const VectorType<Float> &axis_uy, const VectorType<Float> &p_u, const Float &er_stepsize,
 				 const Float &tol, const Float &rrWeight, const int &precision, const Float &EgapEndLocX, const Float &SgapBeginLocX, const bool &useInitializationHack
 #ifdef SPLINE_RIF
 //				 , const Float xmin[], const Float xmax[],  const int N[]
@@ -457,7 +469,7 @@ struct US {
 					 :m_spline(rifgridFile)
 #endif
     {
-    	/// *** HOSSEIN CODE starts HERE
+
     	this->cylindricalOrHIFU = cylindricalOrHIFU; // 1 for cylinder 2 for HIFU
     	this->poly_coeffs     = poly_coeffs;
     	this->poly_eval_limit = poly_eval_limit;
@@ -465,11 +477,14 @@ struct US {
     	this->kp			  = kp;
     	this->x_scale		  = x_scale;
     	this->poly_eval_scale = poly_eval_scale;
+    	this->rotation_angle  = rotation_angle;
+    	this->do_rotate       = do_rotate;
     	for (int i=0; i < this->poly_coeffs.size(); i++){
     		this->poly_coeffs[i] *= this->poly_eval_scale;
     	}
-    	/// **** HOSSEIN CODE ends HERE
-        this->f_u             = f_u;
+
+
+    	this->f_u             = f_u;
 		this->speed_u         = speed_u;
 		this->wavelength_u    = ((double) speed_u)/f_u;
 		this->n_o             = n_o;
@@ -483,6 +498,14 @@ struct US {
 
 		this->axis_uz         = axis_uz;
 		this->axis_ux         = axis_ux;
+		this->axis_uy         = axis_uy;
+
+		this->rot_axis_uz     = axis_uz;
+		this->rot_axis_uy     = rotate(axis_uy, this->rotation_angle);
+		this->rot_axis_ux     = rotate(axis_ux, this->rotation_angle);
+		std::cout<<"rotated axises with angle "<<rotation_angle<<" are: \n y:"<<this->rot_axis_uy << "\n x: " << this->rot_axis_ux<< std::endl;
+		std::cout<<"original axises were: \n y:"<<this->axis_uy << "\n x: " << this->axis_ux<< std::endl;
+
 		this->p_u             = p_u;
 
 		this->er_stepsize     = er_stepsize;
@@ -533,12 +556,19 @@ struct US {
     inline Float RIF(const VectorType<Float> &p, const Float &scaling) const{
         if(p.x > m_EgapEndLocX || p.x < m_SgapBeginLocX)
             return n_o;
-/////////    ***** HOSSEIN CODE STARTS here
 #ifndef SPLINE_RIF
         if(cylindricalOrHIFU == 1){
         	return bessel_RIF(p, scaling);
         }else if (cylindricalOrHIFU == 2){
-        	return fitted_HIFU_RIF(p, scaling);
+        	if(do_rotate){
+        		Float rif1 = fitted_HIFU_RIF(p, scaling, true);
+        		Float rif2 = fitted_HIFU_RIF(p, scaling, false);
+
+        		return rif1 + rif2 - n_o;
+        	}else{
+        		return fitted_HIFU_RIF(p, scaling, false);
+        	}
+
         }
 #else
     	return spline_RIF(p, scaling);
@@ -552,7 +582,15 @@ struct US {
         if(cylindricalOrHIFU == 1){
         	return bessel_dRIF(q, scaling);
         }else if (cylindricalOrHIFU == 2){
-        	return fitted_HIFU_dRIF(q, scaling);
+        	if(do_rotate){
+        		VectorType<Float> drif1 = fitted_HIFU_dRIF(q, scaling, true);
+        		VectorType<Float> drif2 = fitted_HIFU_dRIF(q, scaling, false);
+
+        		return drif1 + drif2;
+        	}else{
+        		return fitted_HIFU_dRIF(q, scaling, false);
+        	}
+
         }
 #else
     	return spline_dRIF(q, scaling);
@@ -619,11 +657,19 @@ struct US {
 
     inline double bessel_RIF(const VectorType<Float> &p, const Float &scaling) const;
 
-    inline double fitted_HIFU_RIF(const VectorType<Float> &p, const Float &scaling) const;
+    inline const VectorType<Float> rotate(const VectorType<Float> &p, const Float rotation_angle) const;
+
+    inline const VectorType<Float> swap(VectorType<Float> &a, VectorType<Float> &b){
+    	VectorType<Float> c = a;
+    	a = b;
+    	b = c;
+    }
+
+    inline double fitted_HIFU_RIF(const VectorType<Float> &p, const Float &scaling, bool rot = false) const;
 
     inline const VectorType<Float> bessel_dRIF(const VectorType<Float> &q, const Float &scaling) const;
 
-    inline const VectorType<Float> fitted_HIFU_dRIF(const VectorType<Float> &q, const Float &scaling) const;
+    inline const VectorType<Float> fitted_HIFU_dRIF(const VectorType<Float> &q, const Float &scaling, bool rot) const;
 
     inline const Matrix3x3 bessel_HessianRIF(const VectorType<Float> &p, const Float &scaling) const;
 
@@ -769,6 +815,8 @@ public:
 			const Float x_scale,
 			const Float poly_eval_scale,
 			const Float kp,
+			const Float rotation_angle,
+			const bool do_rotate,
 
 			const Float& f_u,
 			const Float& speed_u,
@@ -780,6 +828,7 @@ public:
 			const int& mode,
 			const VectorType<Float> &axis_uz,
 			const VectorType<Float> &axis_ux,
+			const VectorType<Float> &axis_uy,
 			const VectorType<Float> &p_u,
 			const Float &er_stepsize,
 			const Float &tol, const Float &rrWeight, const int &precision, const Float &EgapEndLocX, const Float &SgapBeginLocX, const bool &useInitializationHack
@@ -800,10 +849,10 @@ public:
 				m_camera(viewOrigin, viewDir, viewHorizontal, viewPlane, pathlengthRange, useBounceDecomposition, sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_type, sensor_lens_active),
 				m_bsdf(FPCONST(1.0), ior),
 				m_us(
-						// **** HOSSEIN CODE starts HERE
-						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp,
-						// **** HOSSEIN CODE ends HERE
-						f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, p_u, er_stepsize, tol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
+
+						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp, rotation_angle, do_rotate,
+
+						f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, axis_uy, p_u, er_stepsize, tol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
 //						, xmin, xmax, N
 						, rifgridFile

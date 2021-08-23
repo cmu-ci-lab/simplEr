@@ -142,6 +142,25 @@ double US<VectorType>::bessel_RIF(const VectorType<Float> &p, const Float &scali
 
 //////////////////////////// HOSSEIN CODE starts HERE
 
+template <template <typename> class VectorType>
+const VectorType<Float> US<VectorType>::rotate(const VectorType<Float> &p, const Float rotation_angle) const{
+//	const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
+	// and we already have axis ux and uz
+	//doing all this because x,y,z are not oriented
+	Float x_val = dot(p, axis_ux);
+	Float y_val = dot(p, axis_uy);
+	Float z_val = dot(p, axis_uz);
+	VectorType<Float> rotated = (std::cos(rotation_angle)*x_val - std::sin(rotation_angle)*y_val)*axis_ux +
+								(std::sin(rotation_angle)*x_val + std::cos(rotation_angle)*y_val) * axis_uy +
+								z_val * axis_uz;
+//	VectorType<Float> rotated(std::cos(rotation_angle)*x_val - std::sin(rotation_angle)*y_val,
+//							  std::sin(rotation_angle)*x_val + std::cos(rotation_angle)*y_val,
+//							  z_val
+//							  );
+	return rotated;
+}
+
+
 Float my_poly_eval(Float x, std::vector<Float> coeffs, bool diff, Float scale, Float eval_limit){
 	if (x > eval_limit){
 		if (diff){
@@ -165,25 +184,29 @@ Float my_poly_eval(Float x, std::vector<Float> coeffs, bool diff, Float scale, F
 
 
 template <template <typename> class VectorType>
-double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &scaling) const{
+double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &scaling, bool rot) const{
 
     /* we should assume correct order, where lights travels in Z
      * but we should get the i-th element only by doting in corresponding unit vectors
      */
 
     if (n_max != 0) { // to make things faster we put this in if statement
-		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
-
+//		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
+    	tvec::Vec3f my_axis_uy = axis_uy;
+    	tvec::Vec3f my_axis_ux = axis_ux;
+    	if(rot){
+    		my_axis_uy = rot_axis_uy;
+    		my_axis_ux = rot_axis_ux;
+    	}
 		// finding distances
-		VectorType<Float> point_on_HIFU_axis = p_u + dot(p - p_u , axis_uy) * axis_uy; // assuming p_u is the center
+		VectorType<Float> point_on_HIFU_axis = p_u + dot(p - p_u , my_axis_uy) * my_axis_uy; // assuming p_u is the center
 		Float distance_to_HIFU_axis = (p - point_on_HIFU_axis).length();
-		Float distance_to_y_peak = dot(p - p_u, axis_uy);
+		Float distance_to_y_peak = dot(p - p_u, my_axis_uy);
 
 		Float pressure =
 				std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
 				* my_poly_eval(distance_to_HIFU_axis, poly_coeffs, false, x_scale, poly_eval_limit);
 	//    std::cout<<"pressure at "<<p << "\n    "<<pressure<<"\n";
-
 		return n_o + kp * pressure;
     }
     else {
@@ -194,19 +217,24 @@ double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &
 
 
 template <template <typename> class VectorType>
-const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float> &q, const Float &scaling) const{
+const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float> &q, const Float &scaling, bool rot) const{
 
 	/* we should assume correct order, where lights travels in Z
 	 * but we should get the i-th element only by doting in corresponding unit vectors
 	 */
 
 	if (n_max != 0) { // to make things faster we put this in if statement
-		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
-
+//		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
+		tvec::Vec3f my_axis_uy = axis_uy;
+		tvec::Vec3f my_axis_ux = axis_ux;
+		if(rot){
+		   	my_axis_uy = rot_axis_uy;
+		 	my_axis_ux = rot_axis_ux;
+		}
 		// finding distances
-		VectorType<Float> point_on_HIFU_axis = p_u + dot(q - p_u , axis_uy) * axis_uy; // assuming p_u is the center
+		VectorType<Float> point_on_HIFU_axis = p_u + dot(q - p_u , my_axis_uy) * my_axis_uy; // assuming p_u is the center
 		Float distance_to_HIFU_axis = (q - point_on_HIFU_axis).length();
-		Float distance_to_y_peak = dot(q - p_u, axis_uy);
+		Float distance_to_y_peak = dot(q - p_u, my_axis_uy);
 
 
 		Float dP_dy = -2.0*M_PI*hifu_freq
@@ -215,7 +243,7 @@ const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float>
 
 		Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
 				* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
-				* dot(q - p_u, axis_ux) / distance_to_HIFU_axis;
+				* dot(q - p_u, my_axis_ux) / distance_to_HIFU_axis;
 
 		Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
 					* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
