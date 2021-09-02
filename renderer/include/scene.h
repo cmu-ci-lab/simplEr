@@ -393,6 +393,7 @@ struct US {
 	/// **** HOSSEIN CODE starts HERE
 	int cylindricalOrHIFU; // 1 for cylindir 2 for HIFU
 	std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
+	std::string hifu_type;
 	Float poly_eval_limit;
 	Float hifu_freq;
 	Float x_scale = 1000.0;
@@ -447,6 +448,7 @@ struct US {
 
     			 int cylindricalOrHIFU,
 				 std::vector<Float> poly_coeffs,
+				 std::string hifu_type,
 				 Float poly_eval_limit,
 				 Float hifu_freq,
 				 Float x_scale,
@@ -472,6 +474,7 @@ struct US {
 
     	this->cylindricalOrHIFU = cylindricalOrHIFU; // 1 for cylinder 2 for HIFU
     	this->poly_coeffs     = poly_coeffs;
+    	this->hifu_type       = hifu_type;
     	this->poly_eval_limit = poly_eval_limit;
     	this->hifu_freq       = hifu_freq;
     	this->kp			  = kp;
@@ -559,7 +562,7 @@ struct US {
 #ifndef SPLINE_RIF
         if(cylindricalOrHIFU == 1){
         	return bessel_RIF(p, scaling);
-        }else if (cylindricalOrHIFU == 2){
+        }else if (cylindricalOrHIFU == 2){ //rotation and hifu type are handled inside the RIF function
         	if(do_rotate){
         		Float rif1 = fitted_HIFU_RIF(p, scaling, true);
         		Float rif2 = fitted_HIFU_RIF(p, scaling, false);
@@ -581,7 +584,7 @@ struct US {
 #ifndef SPLINE_RIF
         if(cylindricalOrHIFU == 1){
         	return bessel_dRIF(q, scaling);
-        }else if (cylindricalOrHIFU == 2){
+        }else if (cylindricalOrHIFU == 2){ //rotation and hifu type are handled inside the dRIF function
         	if(do_rotate){
         		VectorType<Float> drif1 = fitted_HIFU_dRIF(q, scaling, true);
         		VectorType<Float> drif2 = fitted_HIFU_dRIF(q, scaling, false);
@@ -810,6 +813,7 @@ public:
 
 			const int cylindricalOrHIFU, // 1 for cylindir 2 for HIFU
 			const std::vector<Float> poly_coeffs,
+			const std::string hifu_type,
 			const Float poly_eval_limit,
 			const Float hifu_freq,
 			const Float x_scale,
@@ -850,7 +854,7 @@ public:
 				m_bsdf(FPCONST(1.0), ior),
 				m_us(
 
-						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp, rotation_angle, do_rotate,
+						cylindricalOrHIFU, poly_coeffs, hifu_type, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp, rotation_angle, do_rotate,
 
 						f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, axis_uy, p_u, er_stepsize, tol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF

@@ -132,6 +132,7 @@ int main(int argc, char **argv) {
     std::vector<Float> poly_coeffs{}; // first fit : {-1221000.0, 0.0, 6580000.0, -0.0,  -11627000.0, -0.0, 6185000}
     Float poly_eval_limit = 0.001;
     Float hifu_freq = FPCONST(2315.5);
+    std::string hifu_type = "cyl"; //or "dome"
 
     /*
      * Initialize US parameters
@@ -249,6 +250,16 @@ int main(int argc, char **argv) {
         	for(std::string coef_str : coef_strs){
         		poly_coeffs.push_back(stof(coef_str));
         	}
+        }else if(param[0].compare("hifu_type")==0){
+            transform(param[1].begin(), param[1].end(), param[1].begin(), ::tolower);
+            if(param[1].compare("cyl")==0)
+            	hifu_type = "cyl";
+            else if(param[1].compare("dome")==0)
+            	hifu_type = "dome";
+            else{
+                std::cerr << "hifu_type should be either cyl or dome; Argument " << param[1] << " not recognized" << std::endl;
+                return -1;
+            }
         }else if(param[0].compare("poly_eval_limit")==0){
         	poly_eval_limit = stof(param[1]);
         }else if(param[0].compare("hifu_f")==0){
@@ -659,10 +670,12 @@ int main(int argc, char **argv) {
         std::cout << "sensor_lens_focalLength = " << sensor_lens_focalLength << std::endl;
         std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
         std::cout << "sensor_lens_active = " << sensor_lens_active << std::endl;
+
         std::cout << "poly coefficients: \n";
         for(Float poly_coef : poly_coeffs){
         	std::cout << "     "<<poly_coef<<"\n";
         }
+        std::cout << "hifu_type = " << hifu_type << std::endl;
         std::cout << "poly evaluation limit = " << poly_eval_limit << std::endl;
         std::cout << "hifu frequency = " << hifu_freq << std::endl;
         std::cout << "x_scale = " << x_scale << std::endl;
@@ -735,7 +748,7 @@ int main(int argc, char **argv) {
                         distribution, gOrKappa,
                         emitter_lens_origin, emitter_lens_aperture, emitter_lens_focalLength, emitter_lens_type, emitter_lens_active,
                         sensor_lens_origin, sensor_lens_aperture, sensor_lens_focalLength, sensor_lens_type, sensor_lens_active,
-						cylindricalOrHIFU, poly_coeffs, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp, rotation_angle, do_rotate,
+						cylindricalOrHIFU, poly_coeffs, hifu_type, poly_eval_limit, hifu_freq, x_scale, poly_eval_scale, kp, rotation_angle, do_rotate,
                         f_u, speed_u, n_o, n_max, n_clip, phi_min, phi_max, mode, axis_uz, axis_ux, axis_uy, p_u, er_stepsize, directTol, rrWeight, precision, EgapEndLocX, SgapBeginLocX, useInitializationHack
 #ifdef SPLINE_RIF
                         , rifgridFile

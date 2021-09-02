@@ -153,10 +153,7 @@ const VectorType<Float> US<VectorType>::rotate(const VectorType<Float> &p, const
 	VectorType<Float> rotated = (std::cos(rotation_angle)*x_val - std::sin(rotation_angle)*y_val)*axis_ux +
 								(std::sin(rotation_angle)*x_val + std::cos(rotation_angle)*y_val) * axis_uy +
 								z_val * axis_uz;
-//	VectorType<Float> rotated(std::cos(rotation_angle)*x_val - std::sin(rotation_angle)*y_val,
-//							  std::sin(rotation_angle)*x_val + std::cos(rotation_angle)*y_val,
-//							  z_val
-//							  );
+
 	return rotated;
 }
 
@@ -191,17 +188,29 @@ double US<VectorType>::fitted_HIFU_RIF(const VectorType<Float> &p, const Float &
      */
 
     if (n_max != 0) { // to make things faster we put this in if statement
-//		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
+
+    	//handling rotation
     	tvec::Vec3f my_axis_uy = axis_uy;
     	tvec::Vec3f my_axis_ux = axis_ux;
     	if(rot){
     		my_axis_uy = rot_axis_uy;
     		my_axis_ux = rot_axis_ux;
     	}
+    	//handling hifu type
+    	VectorType<Float> my_p;
+    	if(hifu_type.compare("dome")==0){
+    		my_p = p;
+    	}else if(hifu_type.compare("cyl")==0){
+    		my_p =  dot(p, my_axis_uy) * my_axis_uy +
+					dot(p, my_axis_ux) * my_axis_ux +
+					FPCONST(0.0) * axis_uz;
+    	}
+
+//    	std::cout <<"rotated axises \n y"<<my_axis_uy<<"\n x"<<my_axis_ux<<std::endl;
 		// finding distances
-		VectorType<Float> point_on_HIFU_axis = p_u + dot(p - p_u , my_axis_uy) * my_axis_uy; // assuming p_u is the center
-		Float distance_to_HIFU_axis = (p - point_on_HIFU_axis).length();
-		Float distance_to_y_peak = dot(p - p_u, my_axis_uy);
+		VectorType<Float> point_on_HIFU_axis = p_u + dot(my_p - p_u , my_axis_uy) * my_axis_uy; // assuming p_u is the center
+		Float distance_to_HIFU_axis = (my_p - point_on_HIFU_axis).length();
+		Float distance_to_y_peak = dot(my_p - p_u, my_axis_uy);
 
 		Float pressure =
 				std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
@@ -224,17 +233,30 @@ const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float>
 	 */
 
 	if (n_max != 0) { // to make things faster we put this in if statement
-//		const tvec::Vec3f axis_uy(FPCONST(0.0), FPCONST(1.0), FPCONST(0.0));
+		//	handling rotation
+
+
 		tvec::Vec3f my_axis_uy = axis_uy;
 		tvec::Vec3f my_axis_ux = axis_ux;
 		if(rot){
-		   	my_axis_uy = rot_axis_uy;
-		 	my_axis_ux = rot_axis_ux;
+		    		my_axis_uy = rot_axis_uy;
+		    		my_axis_ux = rot_axis_ux;
 		}
+    	//handling hifu type
+    	VectorType<Float> my_q;
+    	if(hifu_type.compare("dome")==0){
+    		my_q = q;
+    	}else if(hifu_type.compare("cyl")==0){
+    		my_q =
+    				dot(q, my_axis_uy) * my_axis_uy +
+					dot(q, my_axis_ux) * my_axis_ux +
+					FPCONST(0.0) * axis_uz;
+    	}
+
 		// finding distances
-		VectorType<Float> point_on_HIFU_axis = p_u + dot(q - p_u , my_axis_uy) * my_axis_uy; // assuming p_u is the center
-		Float distance_to_HIFU_axis = (q - point_on_HIFU_axis).length();
-		Float distance_to_y_peak = dot(q - p_u, my_axis_uy);
+		VectorType<Float> point_on_HIFU_axis = p_u + dot(my_q - p_u , my_axis_uy) * my_axis_uy; // assuming p_u is the center
+		Float distance_to_HIFU_axis = (my_q - point_on_HIFU_axis).length();
+		Float distance_to_y_peak = dot(my_q - p_u, my_axis_uy);
 
 
 		Float dP_dy = -2.0*M_PI*hifu_freq
@@ -243,16 +265,26 @@ const VectorType<Float> US<VectorType>::fitted_HIFU_dRIF(const VectorType<Float>
 
 		Float dP_dx = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
 				* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
-				* dot(q - p_u, my_axis_ux) / distance_to_HIFU_axis;
+				* dot(my_q - p_u, my_axis_ux) / distance_to_HIFU_axis;
 
-		Float dP_dz = -my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
-					* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
-					* dot(q - p_u, axis_uz) / distance_to_HIFU_axis;
+		Float dP_dz;
+		if(hifu_type.compare("cyl")==0){
+			dP_dz = 0;
+		}else{
+			dP_dz =
+					-my_poly_eval(distance_to_HIFU_axis, poly_coeffs, true, x_scale, poly_eval_limit)
+						* std::cos(2*M_PI*hifu_freq * distance_to_y_peak)
+						* dot(my_q - p_u, axis_uz) / distance_to_HIFU_axis;
+		}
 
-		VectorType<Float> dn(kp * dP_dx,
-							 kp * dP_dy,
-							 kp * dP_dz);
-		//std::cout<<"gradiant at "<<q<<"\n    "<< dn <<"\n";
+		VectorType<Float> dn =
+				kp * dP_dx * my_axis_ux +
+				kp * dP_dy * my_axis_uy +
+				kp * dP_dz * axis_uz;
+//		VectorType<Float> dn(kp * dP_dx,
+//							 kp * dP_dy,
+//							 kp * dP_dz);
+//		std::cout<<"gradiant at "<<q<<"\n    "<< dn <<"\n";
 		return dn;
 	}
 	else{
