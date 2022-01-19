@@ -40,7 +40,7 @@ CFLAGS =
 LDFLAGS =
 
 # Use floats with cuda as doubles are very slow
-# TODO: Enable print_debuglog in CUDA
+# Currently only angular sampling is available on the gpu
 ifeq ($(USE_CUDA), 1)
 	USE_DOUBLE_PRECISION = 0
 	PRINT_DEBUGLOG = 0
@@ -202,9 +202,11 @@ endif
 ifeq ($(USE_CUDA), 1)
 	LIBS+= -L/opt/cuda/lib64/ -lcudart -lcurand
 	INCLUDES+=-I/opt/cuda/include/
+    ## Thrust is used for its stream compaction algorithm
+	INCLUDES+=-I/opt/thrust/thrust/
 
-	##NVCCFLAGS= -O3 -use_fast_math -extra-device-vectorization -maxrregcount 64 -m64 -ccbin /usr/bin/g++ -std=c++14 -arch=sm_61
-	NVCCFLAGS= -O0 -lineinfo -maxrregcount 64 -m64 -ccbin /usr/bin/g++ -std=c++14 -arch=sm_61
+    ##NVCCFLAGS= -O3 -use_fast_math -extra-device-vectorization -maxrregcount 64 -m64 -ccbin $(CC) -std=c++14 -arch=sm_61
+	NVCCFLAGS= -O0 -lineinfo -maxrregcount 64 -m64 -ccbin $(CC) -std=c++14 -arch=sm_61
 	NVCC=nvcc
 
 	HEADERS += \

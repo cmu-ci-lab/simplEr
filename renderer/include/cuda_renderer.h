@@ -20,10 +20,17 @@ namespace cuda {
 
 typedef unsigned int CudaSeedType;
 
-// TODO: Consider exiting on error instead of just printing error
-#define CURAND_CALL(x) do { if((x)!=CURAND_STATUS_SUCCESS) { \
-    printf("Error at %s:%d\n",__FILE__,__LINE__);\
-    }} while(0)
+typedef struct threadScatterState {
+	int shouldContinue; // 1 if should continue, 0 othws
+	TVector3<Float> p;
+	TVector3<Float> d;
+	Float totalDist;
+	Float dist;
+	int depth;
+	Float totalOpticalDistance;
+	Float scaling;
+} threadState_t;
+
 
 class CudaRenderer {
 
@@ -44,6 +51,7 @@ private:
     Float *cudaImage;
     Scene *cudaScene;
     Medium *cudaMedium;
+    threadState_t* continueData;
 
     inline Float getWeight(const med::Medium &, const scn::Scene<tvec::TVector3> &scene,
                             const int64 numPhotons) {
@@ -52,10 +60,6 @@ private:
     }
     void setup(image::SmallImage& target, const med::Medium &medium, const scn::Scene<tvec::TVector3> &scene, int numPhotons);
     void cleanup();
-    void genDeviceRandomNumbers(Float *cudaRandom, int num, CudaSeedType seed = CudaSeedType(5489));
-    unsigned int requiredRandomNumbers(int numPhotons);
-
-    curandGenerator_t generator;
 
     /* Host memory*/
     Float *image;

@@ -30,7 +30,6 @@ bool Renderer<VectorType>::scatterOnce(VectorType<Float> &p, VectorType<Float> &
 #ifdef PRINT_DEBUGLOG
 		std::cout << "sampler before move photon:" << sampler() << "\n";
 #endif
-		//printf("scatterOnce: movePhotons with pos (%.4f %.4f %.4f) dir (%.4f %.4f %.4f) dist %.4f, totalOpticalDistance %.4f, scaling %.4f\n", p.x, p.y, p.z, d.x, d.y, d.z, dist, totalOpticalDistance, scaling);
 		return scene.movePhoton(p, d, dist, totalOpticalDistance, sampler, scaling);
 	} else {
 		dist = FPCONST(0.0);
@@ -102,11 +101,9 @@ void Renderer<VectorType>::scatter(const VectorType<Float> &p, const VectorType<
 
 		Float dist = getMoveStep(medium, sampler);
 
-		//printf("move photon: pos (%.4f %.4f %.4f) dir (%.4f %.4f %.4f) dist %.4f, totalOpticalDistance %.4f, scaling %.4f\n", pos.x, pos.y, pos.z, dir.x, dir.y, dir.z, dist, totalOpticalDistance, scaling);
 		if (!scene.movePhoton(pos, dir, dist, totalOpticalDistance, sampler, scaling)) {
 			return;
 		}
-		//printf("after move photon: pos (%.4f %.4f %.4f) dir (%.4f %.4f %.4f) dist %.4f, totalOpticalDistance %.4f, scaling %.4f\n", pos.x, pos.y, pos.z, dir.x, dir.y, dir.z, dist, totalOpticalDistance, scaling);
 
 #ifdef PRINT_DEBUGLOG
 		std::cout << "dist: " << dist << "\n";
@@ -117,7 +114,6 @@ void Renderer<VectorType>::scatter(const VectorType<Float> &p, const VectorType<
 		Float totalDist = dist;
 		while ((m_maxDepth < 0 || depth <= m_maxDepth) &&
 				(m_maxPathlength < 0 || totalDist <= m_maxPathlength)) {
-				//printf("UseAngularSampling: addEnergy at pos (%.4f %.4f %.4f) dir (%.4f %.4f %.4f) totalOpticalDistance %.4f, depth %d, scaling %.4f\n", pos.x, pos.y, pos.z, dir.x, dir.y, dir.z, totalOpticalDistance, depth, scaling);
 			if(m_useAngularSampling)
                 scene.addEnergyInParticle(img, pos, dir, totalOpticalDistance, depth, weight, medium, sampler, scaling);
 			else
